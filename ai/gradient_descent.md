@@ -221,11 +221,9 @@ We repeat from step 2 (compute the cost function) to step 4 (update the paramete
 ### Gradient Descent In Summary:
 We can simply summarize all the steps of the Gradient Descent algorithm as follows:
 
-$\text{repeat until convergence:\{} \\
-\quad w = w - \alpha \frac{\partial J(w,b)}{\partial w} \\
-\quad b = b - \alpha \frac{\partial J(w,b)}{\partial b} \\
-\text{\}}$
-
+$\text{repeat until convergence:}$<br>
+$\quad w = w - \alpha \frac{\partial J(w,b)}{\partial w}$<br>
+$\quad b = b - \alpha \frac{\partial J(w,b)}{\partial b}$
 
 
 > This whole process of running the Gradient Descent algorithm, is also called **training** the model. The goal of training is to find the best values of the parameters (weights and biases) that minimize the cost function $J$.
