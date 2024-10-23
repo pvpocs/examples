@@ -236,7 +236,6 @@ $$\frac{\partial J(w,b)}{\partial b} = \frac{1}{m} \sum\limits_{i = 1}^{m} (wx^{
 
 So, the Gradient Descent algorithm for linear regression can be written as:
 
-$\text{repeat until convergence:\{} \\
-\quad w = w - \alpha \frac{1}{m} \sum\limits_{i = 1}^{m} (wx^{(i)} + b - y^{(i)})x^{(i)} \\
-\quad b = b - \alpha \frac{1}{m} \sum\limits_{i = 1}^{m} (wx^{(i)} + b - y^{(i)}) \\
-\text{\}}$
+$\text{repeat until convergence:}$<br>
+$\quad w = w - \alpha \frac{1}{m} \sum\limits_{i = 1}^{m} (f_{w,b}(x^{(i)}) - y^{(i)})x^{(i)}$<br>
+$\quad b = b - \alpha \frac{1}{m} \sum\limits_{i = 1}^{m} (f_{w,b}(x^{(i)}) - y^{(i)})$
