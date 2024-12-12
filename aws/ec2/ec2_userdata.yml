@@ -16,7 +16,7 @@ Parameters:
   ImageId:
     Description: The ID of the AMI to use for the instance.
     Type: String
-    Default: ami-0fb56bffbeed88db5
+    Default: ami-041c914bb6988afbd
   KeyPairName:
     Description: The name of the key pair to use for the instance.
     Type: String
