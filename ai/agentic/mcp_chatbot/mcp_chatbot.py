@@ -12,6 +12,24 @@ class ChatBot:
     def __init__(self, mcp_client: MCPClient):
         self.anthropic = AnthropicBedrock()
         self.mcp_client = mcp_client
+        self.conversation_history = []
+        self.system_message = None
+
+    def reset_conversation(self):
+        """Reset the conversation history."""
+        self.conversation_history = []
+        self.system_message = None
+
+    def print_history(self):
+        print("\nConversation History:")
+        for message in self.conversation_history:
+            role = message["role"]
+            content = message["content"]
+            if isinstance(content, list):
+                content = " ".join(
+                    [c.text for c in content if hasattr(c, "text")]
+                )
+            print(f"{role.capitalize()}: {content}")
 
     def list_prompts(self):
         """List all available prompts."""
@@ -106,21 +124,37 @@ class ChatBot:
                 f" Prompts: {prompt_count}, Resources: {resource_count})"
             )
 
+    def _parse_command_args(self, command_parts):
+        """Parse command arguments from the command parts."""
+        if len(command_parts) < 2:
+            print("Usage: /option <name> <arg1=value1> <arg2=value2>")
+            return None, None
+
+        command_name = command_parts[1]
+        args = {}
+
+        # Parse key=value arguments
+        for arg in command_parts[2:]:
+            if "=" in arg:
+                key, value = arg.split("=", 1)
+                # Handle quoted values
+                if value.startswith('"') and value.endswith('"'):
+                    value = value[1:-1]
+                elif value.startswith("'") and value.endswith("'"):
+                    value = value[1:-1]
+                args[key.strip()] = value.strip()
+            else:
+                # Handle boolean flags or positional args
+                args[arg] = True
+
+        return command_name, args
+
     async def execute_prompt(self, command_parts):
         """Execute a prompt with the given command parts."""
         try:
-            if len(command_parts) < 2:
-                print("Usage: /prompt <name> <arg1=value1> <arg2=value2>")
+            prompt_name, args = self._parse_command_args(command_parts)
+            if not prompt_name:
                 return
-
-            prompt_name = command_parts[1]
-            args = {}
-
-            # Parse arguments
-            for arg in command_parts[2:]:
-                if "=" in arg:
-                    key, value = arg.split("=", 1)
-                    args[key] = value
 
             print(f"\nExecuting prompt '{prompt_name}'...")
             prompt_text = await self.mcp_client.get_prompt(prompt_name, args)
@@ -128,8 +162,29 @@ class ChatBot:
         except Exception as err:
             print(f"Error: {err}")
 
+    async def execute_tool(self, command_parts):
+        """Execute a tool with the given command parts."""
+        try:
+            tool_name, args = self._parse_command_args(command_parts)
+            if not tool_name:
+                return
+
+            print(f"\nExecuting tool '{tool_name}'...")
+            result = await self.mcp_client.execute_tool(tool_name, args)
+            print(f"Tool result: {result.content}")
+
+        except Exception as err:
+            print(f"Error: {err}")
+
     async def process_query(self, query):
-        messages = [{"role": "user", "content": query}]
+        # Build messages with conversation history
+        messages = []
+
+        # Add conversation history
+        messages.extend(self.conversation_history)
+
+        # Add current query
+        messages.append({"role": "user", "content": query})
 
         # Create clean tools list for Anthropic API (without any additional or
         # non-serializable data)
@@ -150,6 +205,7 @@ class ChatBot:
                 model=model,
                 max_tokens=max_tokens,
                 tools=tools_for_anthropic,
+                system=self.system_message,
                 messages=messages,
             )
 
@@ -157,6 +213,7 @@ class ChatBot:
             has_tool_use = False
 
             for content in response.content:
+                print(f"Assistant content: {content}")
                 if content.type == "text":
                     print(content.text)
                     assistant_content.append(content)
@@ -166,11 +223,11 @@ class ChatBot:
                     messages.append(
                         {"role": "assistant", "content": assistant_content}
                     )
-
                     try:
                         result = await self.mcp_client.execute_tool(
                             content.name, content.input
                         )
+                        print(f"Tool result: {result}")
                         messages.append(
                             {
                                 "role": "user",
@@ -191,18 +248,22 @@ class ChatBot:
             if not has_tool_use:
                 break
 
-    async def chat_loop(self):
+        self.conversation_history = messages
+
+    async def admin_loop(self):
         print("Type your queries or '/exit' to exit.")
         print("Use /servers to list connected servers")
         print("Use /resources to list available resources")
         print("Use /tools to list available tools")
+        print("Use /tool <name> <arg1=value1> to execute a tool")
         print("Use /prompts to list available prompts")
         print("Use /prompt <name> <arg1=value1> to execute a prompt")
         print("Use @protocol://resource to see resource content")
+        print("Use /reset to clear conversation history")
 
         while True:
             try:
-                query = input("\nQuery: ").strip()
+                query = input("\nAdmin: ").strip()
                 if not query:
                     continue
 
@@ -214,6 +275,12 @@ class ChatBot:
                     if command == "/exit":
                         print("Exiting chat...")
                         break
+                    elif command == "/reset":
+                        self.reset_conversation()
+                        print("Conversation history cleared.")
+                        continue
+                    elif command == "/history":
+                        self.print_history()
                     elif command == "/servers":
                         self.list_servers()
                     elif command == "/resources":
@@ -224,6 +291,8 @@ class ChatBot:
                         self.list_prompts()
                     elif command == "/prompt":
                         await self.execute_prompt(parts)
+                    elif command == "/tool":
+                        await self.execute_tool(parts)
                     else:
                         print(f"Unknown command: {command}")
                     continue
@@ -239,13 +308,72 @@ class ChatBot:
             except Exception as err:
                 print(f"\nError: {str(err)}")
 
+    async def shopper_loop(self):
+        print("Use /reset to clear conversation history")
+        print("Use /history to see conversation history")
+        print("Use /exit to exit the chat")
+        print("\nHow can I help you today?")
+        categories = self.mcp_client.get_resource("catalog://categories")
+
+        self.system_message = f"""
+You are a friendly and knowledgeable shoe store assistant. Greet the customer warmly and let them know about our available categories.
+
+{categories}
+
+Ask the customer what type of shoes they're looking for and what they'll be using them for. Be conversational and helpful!
+CONVERSATION FLOW:
+1. Greet customers warmly and show available categories
+2. Ask clarifying questions to understand their needs:
+   - What activity/purpose?
+   - What size do they wear?
+   - Any color preferences?
+   - Budget considerations?
+3. Use available tools and resources to find matching products
+4. Present options clearly and help them decide
+
+CONVERSATION STYLE:
+- Be friendly and conversational
+- Ask follow-up questions to better understand needs
+- Present information clearly
+- Help guide customers to the right choice
+- Always verify inventory before making final recommendations
+"""
+        while True:
+            try:
+                query = input("\nQuery: ").strip()
+                if not query:
+                    continue
+
+                if query.lower() == "/exit":
+                    print("Thank you for visiting! Have a great day!")
+                    break
+                elif query.lower() == "/reset":
+                    self.reset_conversation()
+                    print("Conversation reset. How can I help you?")
+                    continue
+                elif query.lower() == "/history":
+                    self.print_history()
+                    continue
+
+                await self.process_query(query)
+
+            except Exception as err:
+                print(f"\nError: {str(err)}")
+                continue
+
 
 async def main():
     mcp_client = MCPClient()
     chatbot = ChatBot(mcp_client)
     try:
         await mcp_client.connect_to_servers("server_config.json")
-        await chatbot.chat_loop()
+        mode = input("Enter chat mode (admin/shopper): ").strip().lower()
+        if mode == "admin":
+            await chatbot.admin_loop()
+        elif mode == "shopper":
+            await chatbot.shopper_loop()
+        else:
+            print("Invalid mode. Please enter 'admin' or 'shopper'.")
     finally:
         await mcp_client.cleanup()
 
