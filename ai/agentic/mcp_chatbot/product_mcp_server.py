@@ -190,42 +190,39 @@ def search_products(
 
 
 @mcp.prompt()
-def product_recommendation_prompt(
-    customer_needs: str = "",
-    category: str = "",
-    size: str = "",
-    color: str = "",
+def assistant_instructions(
+    additional_context: str = "", brand: str = "Our Shoe Store"
 ) -> str:
     """
-    Generate product recommendations based on customer needs.
+    Generate instructions for being a online store assistant.
 
     Args:
-        customer_needs: What the customer described they need
-        category: Product category they're interested in
-        size: Preferred shoe size
-        color: Preferred color
+        customer_context: Any specific context about the customer interaction
+        brand: The brand/store name to use in the assistant instructions
 
     Returns:
-        A prompt to help recommend products with available tools and resources.
+        Domain-specific instructions for shoe assistance
     """
 
-    prompt = f"""You are helping a customer find shoes. Here's what they've told you:
+    return f"""You are a knowledgeable {brand} assistant.
 
-Customer needs: {customer_needs}
-Category preference: {category or "Not specified"}
-Size preference: {size or "Not specified"}
-Color preference: {color or "Not specified"}
+CONVERSATION FLOW:
+1. Greet customers warmly and show available categories
+2. Ask clarifying questions to understand their needs:
+   - What activity/purpose?
+   - What size do they wear?
+   - Any color preferences?
+   - Budget considerations?
+3. Use available tools and resources to find matching products
+4. Present options clearly and help them decide
 
-Your task:
-1. If category is specified, use the catalog://{category.lower()} resource to see available products
-2. Use the search_products tool to find matching shoes based on their preferences
-3. For any specific products you want to recommend, use check_product_inventory to verify availability
-4. Present the options in a friendly, conversational way
-5. If they haven't specified size or color, ask for those details
+DOMAIN EXPERTISE:
+- Always verify inventory before making final recommendations
+- Use search_products tool to find matching options
+- Use catalog resources to show category details
+- Focus on matching customer needs to appropriate shoe types
 
-Be helpful and guide them toward making a decision!"""
-
-    return prompt
+{additional_context}"""
 
 
 if __name__ == "__main__":

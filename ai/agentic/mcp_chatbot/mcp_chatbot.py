@@ -250,7 +250,7 @@ class ChatBot:
 
         self.conversation_history = messages
 
-    async def admin_loop(self):
+    async def admin_bot(self):
         print("Type your queries or '/exit' to exit.")
         print("Use /servers to list connected servers")
         print("Use /resources to list available resources")
@@ -308,36 +308,38 @@ class ChatBot:
             except Exception as err:
                 print(f"\nError: {str(err)}")
 
-    async def shopper_loop(self):
+    async def shopper_bot(self):
         print("Use /reset to clear conversation history")
         print("Use /history to see conversation history")
         print("Use /exit to exit the chat")
         print("\nHow can I help you today?")
-        categories = self.mcp_client.get_resource("catalog://categories")
 
-        self.system_message = f"""
-You are a friendly and knowledgeable shoe store assistant. Greet the customer warmly and let them know about our available categories.
+        categories = await self.mcp_client.get_resource("catalog://categories")
 
-{categories}
-
-Ask the customer what type of shoes they're looking for and what they'll be using them for. Be conversational and helpful!
-CONVERSATION FLOW:
-1. Greet customers warmly and show available categories
-2. Ask clarifying questions to understand their needs:
-   - What activity/purpose?
-   - What size do they wear?
-   - Any color preferences?
-   - Budget considerations?
-3. Use available tools and resources to find matching products
-4. Present options clearly and help them decide
-
+        additional_context = f"""
 CONVERSATION STYLE:
 - Be friendly and conversational
 - Ask follow-up questions to better understand needs
 - Present information clearly
 - Help guide customers to the right choice
 - Always verify inventory before making final recommendations
+
+AVAILABLE CATEGORIES:
+{categories}
 """
+        # Initial interaction: Greet the customer warmly and ask what they're looking for.
+
+        # Define the brand name
+        brand_name = "AnyFootwear Co."
+
+        # Get domain-specific instructions from MCP server
+        domain_instructions = await self.mcp_client.get_prompt(
+            "assistant_instructions",
+            {"additional_context": additional_context, "brand": brand_name},
+        )
+
+        self.system_message = domain_instructions
+
         while True:
             try:
                 query = input("\nQuery: ").strip()
@@ -369,9 +371,9 @@ async def main():
         await mcp_client.connect_to_servers("server_config.json")
         mode = input("Enter chat mode (admin/shopper): ").strip().lower()
         if mode == "admin":
-            await chatbot.admin_loop()
+            await chatbot.admin_bot()
         elif mode == "shopper":
-            await chatbot.shopper_loop()
+            await chatbot.shopper_bot()
         else:
             print("Invalid mode. Please enter 'admin' or 'shopper'.")
     finally:
